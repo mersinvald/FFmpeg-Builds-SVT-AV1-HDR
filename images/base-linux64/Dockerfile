@@ -68,3 +68,57 @@ ENV PATH="/opt/ct-ng/bin:${PATH}" \
     LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -O2 -pipe -fstack-protector-strong -fstack-clash-protection -Wl,-z,relro,-z,now -pthread -lm" \
     STAGE_CFLAGS="-fvisibility=hidden -fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fvisibility=hidden -fno-semantic-interposition"
+
+# === CUDA toolkit (for libvmaf-cuda) ===========================================
+#
+# Installs nvcc + cudart static + driver stubs from NVIDIA's apt repo so
+# libvmaf can be built with `-Denable_cuda=true` and ffmpeg picks up
+# the libvmaf_cuda filter automatically. We use the ubuntu2404 repo
+# because NVIDIA has not yet published an ubuntu2604 repo as of CUDA
+# 13.0; the packages are pure userspace (nvcc, cudart, libcuda stub)
+# and have no kernel-side dependency, so they work fine on the ubuntu
+# 26.04 base image.
+#
+# Only the minimal set:
+#   cuda-nvcc-13-0       -- the CUDA C/C++ compiler
+#   cuda-cudart-dev-13-0 -- libcudart_static.a + libcudart.so + dev
+#                           headers (no separate -static package on the
+#                           NVIDIA apt repo, the static .a ships in
+#                           the -dev package)
+#   cuda-driver-dev-13-0 -- libcuda.so stub for build-time linking
+#                           (real libcuda.so.1 is mounted by the
+#                           runtime container's nvidia-container-runtime)
+#
+# Total install ~250 MB vs ~4 GB for the full toolkit.
+#
+# `nvcc` is told via NVCC_PREPEND_FLAGS to use the cross-toolchain g++
+# for HOST-side compilation; device-side (.cu -> PTX/SASS) compilation
+# uses nvcc's own bundled tooling and doesn't care about the cross
+# toolchain. Without -ccbin, nvcc would default to /usr/bin/g++ (the
+# build container's native gcc, NOT the crosstool-ng one), producing
+# host objects ABI-incompatible with the rest of the libvmaf static
+# library.
+#
+# `-I /opt/ffbuild/include` is also prepended because libvmaf's CUDA
+# kernels include ffnvcodec headers (e.g. ffnvcodec/dynlink_cuda.h
+# from picture.h → common.h → integer_adm_cuda.h transitively). The
+# host C/C++ build picks ffnvcodec includes up via pkg-config Cflags,
+# but meson's nvcc custom_commands don't inherit those pkg-config
+# flags -- they hardcode their own -I list. Adding $FFBUILD_PREFIX/
+# include to NVCC_PREPEND_FLAGS makes ffnvcodec headers visible to
+# nvcc regardless of meson's command-line shape.
+ARG CUDA_REPO_URL=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+RUN curl -fsSL "$CUDA_REPO_URL" -o /tmp/cuda-keyring.deb \
+ && dpkg -i /tmp/cuda-keyring.deb \
+ && rm /tmp/cuda-keyring.deb \
+ && apt-get -y update \
+ && apt-get -y install --no-install-recommends \
+        cuda-nvcc-13-0 \
+        cuda-cudart-dev-13-0 \
+        cuda-driver-dev-13-0 \
+ && apt-get -y clean autoclean \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV CUDA_PATH=/usr/local/cuda \
+    PATH="/usr/local/cuda/bin:${PATH}" \
+    NVCC_PREPEND_FLAGS="-ccbin x86_64-ffbuild-linux-gnu-g++ -I /opt/ffbuild/include"

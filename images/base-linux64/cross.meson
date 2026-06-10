@@ -5,6 +5,12 @@ ld = 'x86_64-ffbuild-linux-gnu-ld'
 ar = 'x86_64-ffbuild-linux-gnu-gcc-ar'
 ranlib = 'x86_64-ffbuild-linux-gnu-gcc-ranlib'
 strip = 'x86_64-ffbuild-linux-gnu-strip'
+# nvcc only relevant when a script enables CUDA (e.g. libvmaf with
+# -Denable_cuda=true). The CUDA toolkit is installed in the
+# base-linux64 image; meson finds nvcc via $PATH. We pin the binary
+# path here so a script can `add_languages('cuda', native: false)`
+# without relying on PATH resolution inside its own build dir.
+cuda = '/usr/local/cuda/bin/nvcc'
 
 [host_machine]
 system = 'linux'
