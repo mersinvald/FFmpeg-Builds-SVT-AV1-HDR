@@ -11,6 +11,18 @@ ffbuild_dockerbuild() {
     # Kill build of unused and broken tools
     echo > libvmaf/tools/meson.build
 
+    # IMPORTANT: build dir MUST live INSIDE libvmaf/, not as a sibling.
+    # The libvmaf meson generates .cu custom_commands with -I paths
+    # like `-I ../src -I ../include` that resolve relative to the
+    # SOURCE root. With the historic `cd build && meson ../libvmaf`
+    # pattern (build dir sibling to libvmaf/), those `../src` paths
+    # point at <vmaf-repo>/src which doesn't exist (the actual source
+    # is <vmaf-repo>/libvmaf/src). Using the in-tree pattern below
+    # makes ../src resolve correctly. This only matters with
+    # -Denable_cuda=true (the CPU build doesn't have those custom
+    # commands), so the original out-of-tree pattern silently worked
+    # until we enabled CUDA.
+    cd libvmaf
     mkdir build && cd build
 
     local myconf=(
@@ -61,7 +73,7 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
-    meson "${myconf[@]}" ../libvmaf || cat meson-logs/meson-log.txt
+    meson .. "${myconf[@]}" || cat meson-logs/meson-log.txt
     ninja -j"$(nproc)"
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
