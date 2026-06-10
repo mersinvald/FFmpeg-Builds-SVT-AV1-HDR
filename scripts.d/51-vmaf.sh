@@ -7,6 +7,25 @@ ffbuild_enabled() {
     return 0
 }
 
+# Each scripts.d/*.sh runs in an ISOLATED stage container that starts
+# from `base` plus whatever's listed here. With CUDA enabled the
+# libvmaf build needs nv-codec-headers (ffnvcodec.pc + headers)
+# available in $FFBUILD_PREFIX -- those come from the 50-ffnvcodec.sh
+# stage, which doesn't propagate automatically. Without this depends
+# declaration, meson setup fails with:
+#   "ffnvcodec/dynlink_cuda.h not found. Please install
+#    nv-codec-headers ..."
+# even though 50-ffnvcodec.sh ran successfully earlier.
+#
+# The dependency is conceptually optional on non-linux64 targets (no
+# CUDA -> no ffnvcodec need), but declaring it unconditionally is
+# fine: ffnvcodec.pc is small and is needed by ffmpeg's nvenc/nvdec
+# config on all targets that ship those encoders anyway.
+ffbuild_depends() {
+    echo base
+    echo ffnvcodec
+}
+
 ffbuild_dockerbuild() {
     # Kill build of unused and broken tools
     echo > libvmaf/tools/meson.build
