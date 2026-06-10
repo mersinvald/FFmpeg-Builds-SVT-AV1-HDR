@@ -82,13 +82,20 @@ ffbuild_dockerbuild() {
     # If CUDA was enabled, append the static CUDA runtime + driver
     # stub to libvmaf.pc's Libs.private so ffmpeg's pkg-config
     # invocation pulls them into the final static link line.
-    # libcudart_static.a is in /usr/local/cuda/lib64; libcuda is the
-    # driver shim from cuda-driver-dev-13-0 (resolved at runtime
-    # against /usr/lib/x86_64-linux-gnu/libcuda.so.1 mounted by
-    # nvidia-container-runtime). -ldl + -lrt are required by
-    # cudart_static.
+    #
+    # Path layout from cuda-cudart-dev-13-0 + cuda-driver-dev-13-0:
+    #   /usr/local/cuda/lib64/libcudart_static.a   (runtime, static)
+    #   /usr/local/cuda/lib64/stubs/libcuda.so     (driver shim,
+    #                                               build-time only)
+    # Note the stub for libcuda is in a `stubs/` SUBDIRECTORY, not
+    # directly in lib64/, so a single `-L/usr/local/cuda/lib64` won't
+    # find -lcuda. We pass both -L paths. The actual libcuda.so.1
+    # used at runtime is mounted from the host by nvidia-container-
+    # runtime; the stub is only there to satisfy the linker.
+    #
+    # -ldl + -lrt are transitive requirements of cudart_static.
     if [[ $TARGET == linux64 ]]; then
-        sed -i 's|Libs.private:|Libs.private: -L/usr/local/cuda/lib64 -lcudart_static -lcuda -ldl -lrt|' \
+        sed -i 's|Libs.private:|Libs.private: -L/usr/local/cuda/lib64 -L/usr/local/cuda/lib64/stubs -lcudart_static -lcuda -ldl -lrt|' \
             "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libvmaf.pc
         sed -i 's|Cflags:|Cflags: -I/usr/local/cuda/include|' \
             "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libvmaf.pc

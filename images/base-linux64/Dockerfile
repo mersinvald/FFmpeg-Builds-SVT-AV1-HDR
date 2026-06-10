@@ -98,6 +98,15 @@ ENV PATH="/opt/ct-ng/bin:${PATH}" \
 # build container's native gcc, NOT the crosstool-ng one), producing
 # host objects ABI-incompatible with the rest of the libvmaf static
 # library.
+#
+# `-I /opt/ffbuild/include` is also prepended because libvmaf's CUDA
+# kernels include ffnvcodec headers (e.g. ffnvcodec/dynlink_cuda.h
+# from picture.h → common.h → integer_adm_cuda.h transitively). The
+# host C/C++ build picks ffnvcodec includes up via pkg-config Cflags,
+# but meson's nvcc custom_commands don't inherit those pkg-config
+# flags -- they hardcode their own -I list. Adding $FFBUILD_PREFIX/
+# include to NVCC_PREPEND_FLAGS makes ffnvcodec headers visible to
+# nvcc regardless of meson's command-line shape.
 ARG CUDA_REPO_URL=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 RUN curl -fsSL "$CUDA_REPO_URL" -o /tmp/cuda-keyring.deb \
  && dpkg -i /tmp/cuda-keyring.deb \
@@ -112,4 +121,4 @@ RUN curl -fsSL "$CUDA_REPO_URL" -o /tmp/cuda-keyring.deb \
 
 ENV CUDA_PATH=/usr/local/cuda \
     PATH="/usr/local/cuda/bin:${PATH}" \
-    NVCC_PREPEND_FLAGS="-ccbin x86_64-ffbuild-linux-gnu-g++"
+    NVCC_PREPEND_FLAGS="-ccbin x86_64-ffbuild-linux-gnu-g++ -I /opt/ffbuild/include"
