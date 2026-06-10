@@ -80,11 +80,14 @@ ENV PATH="/opt/ct-ng/bin:${PATH}" \
 # 26.04 base image.
 #
 # Only the minimal set:
-#   cuda-nvcc-13-0          -- the CUDA C/C++ compiler
-#   cuda-cudart-static-13-0 -- libcudart_static.a for static link into libvmaf
-#   cuda-driver-dev-13-0    -- libcuda.so stub for build-time linking
-#                              (real libcuda.so.1 is mounted by the
-#                              runtime container's nvidia-container-runtime)
+#   cuda-nvcc-13-0       -- the CUDA C/C++ compiler
+#   cuda-cudart-dev-13-0 -- libcudart_static.a + libcudart.so + dev
+#                           headers (no separate -static package on the
+#                           NVIDIA apt repo, the static .a ships in
+#                           the -dev package)
+#   cuda-driver-dev-13-0 -- libcuda.so stub for build-time linking
+#                           (real libcuda.so.1 is mounted by the
+#                           runtime container's nvidia-container-runtime)
 #
 # Total install ~250 MB vs ~4 GB for the full toolkit.
 #
@@ -102,7 +105,7 @@ RUN curl -fsSL "$CUDA_REPO_URL" -o /tmp/cuda-keyring.deb \
  && apt-get -y update \
  && apt-get -y install --no-install-recommends \
         cuda-nvcc-13-0 \
-        cuda-cudart-static-13-0 \
+        cuda-cudart-dev-13-0 \
         cuda-driver-dev-13-0 \
  && apt-get -y clean autoclean \
  && rm -rf /var/lib/apt/lists/*
