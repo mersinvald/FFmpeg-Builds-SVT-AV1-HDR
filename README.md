@@ -1,11 +1,22 @@
-# FFmpeg Static Auto-Builds (Fork with SVT-AV1-HDR)
+# FFmpeg Static Auto-Builds (Fork with SVT-AV1-HDR + libvmaf-cuda)
 
-Static Windows (x86_64) and Linux (x86_64) Builds of ffmpeg master and latest release branch, featuring SVT-AV1-HDR.
+Static Windows (x86_64) and Linux (x86_64) Builds of ffmpeg master and latest release branch, featuring:
+
+- **SVT-AV1-HDR** — juliobbv-p/svt-av1-hdr (psychovisual SVT-AV1 fork descended from
+  psy-ex/svt-av1-psy with HDR-content perceptual tuning).
+- **libvmaf with CUDA backend** (linux64 only) — Netflix's libvmaf built with
+  `-Denable_cuda=true`, which enables ffmpeg's `libvmaf_cuda` filter for
+  GPU-accelerated VMAF scoring on NVIDIA Ada+ hardware. Falls back to the
+  CPU `libvmaf` filter when no GPU is available.
 
 Windows builds are targetting Windows 7 and newer, provided UCRT is installed.
 The minimum supported version is Windows 10 22H2, no guarantees on anything older.
 
 Linux builds are targetting RHEL/CentOS 8 (glibc-2.28 + linux-4.18) and anything more recent.
+
+linux64 binaries dlopen `libcuda.so.1` at runtime for `libvmaf_cuda` and the
+existing NVENC/NVDEC paths -- on hosts without an NVIDIA driver the filter
+simply isn't usable, the rest of ffmpeg works as normal.
 
 ## Auto-Builds
 
